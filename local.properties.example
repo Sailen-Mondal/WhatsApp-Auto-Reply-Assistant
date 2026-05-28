@@ -1,0 +1,7 @@
+# Copy this file to local.properties and fill in your own values.
+# local.properties is git-ignored — never commit your real keys.
+
+sdk.dir=/path/to/your/Android/Sdk
+
+# Get a free API key from https://openrouter.ai/keys
+OPENROUTER_API_KEY=your_openrouter_api_key_here

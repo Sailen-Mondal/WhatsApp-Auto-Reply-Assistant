@@ -1,0 +1,830 @@
+1. Vision recap in concrete terms
+
+You’re building an Android companion app that:
+
+Listens to WhatsApp notifications (incoming + outgoing, including quick replies).
+
+Reconstructs chats in its own local database:
+
+Text from notifications.
+
+Media metadata (type, maybe captions/thumbnails if present in the notification).
+
+Keeps copies even if messages are deleted in WhatsApp.
+
+
+Uses a LLM (via Groq API) to:
+
+Understand context + mood + language style (Hinglish/Benglish, emojis, etc.).
+
+Generate better-than-average human replies.
+
+
+Can:
+
+Just suggest replies inside your app, OR
+
+Auto-send replies via notification “Reply” action when an “Auto” toggle is ON.
+
+Add random delay before auto-sending so it doesn’t look like a bot.
+
+
+Has a minimal WhatsApp-like UI:
+
+Chat list.
+
+Chat screen.
+
+Indicators for auto-reply status per chat.
+
+
+Is for personal, experimental use, not for public release.
+
+
+
+---
+
+2. High-level architecture
+
+Think in 4 layers:
+
+1. Android Presentation layer (UI)
+
+Activities/Fragments/Compose screens:
+
+Chat List Screen
+
+Chat Detail Screen
+
+Settings Screen
+
+LLM / Auto-reply Control Panel
+
+
+Shows messages from your own DB, not directly from WhatsApp.
+
+
+
+2. Domain layer (business logic)
+
+Conversation manager: manages chats, message threads, moods, auto-reply decisions.
+
+Auto-reply engine: decides whether to call LLM + whether to auto-send.
+
+Delay & scheduling logic.
+
+Language + “style” handling (Hinglish, tone, etc.).
+
+
+
+3. Data layer
+
+Notification listener -> ingestion pipeline.
+
+Local DB (Room) for chats, messages, media metadata, settings, logs.
+
+LLM client (Groq API) with rate limiting, retries, caching.
+
+Settings repository (auto-reply on/off, default style, delay range).
+
+
+
+4. OS integration
+
+NotificationListenerService to capture WhatsApp notifications.
+
+Use notification “Reply” action to send responses.
+
+WorkManager / Coroutine scope for background tasks (LLM calls + delays).
+
+
+
+
+
+---
+
+3. Notification ingestion & chat reconstruction
+
+3.1 Notification Listener Service
+
+Component: WhatsAppNotificationListener : NotificationListenerService
+
+Responsibilities:
+
+Watch all posted notifications.
+
+Filter: packageName == "com.whatsapp" (and optionally Business/GB/others as needed).
+
+Parse:
+
+Title → usually contact or group name.
+
+Text → message content (or summary like “3 new messages”).
+
+MessagingStyle extras → conversation line details if provided:
+
+Sender name
+
+Message text
+
+Timestamp
+
+
+Actions → find “Reply” action to be able to send auto-replies.
+
+
+
+Limitations:
+
+For multiple new messages, notifications sometimes show aggregated content (“3 new messages”) instead of individual lines.
+
+Media may appear as:
+
+“Photo”, “Voice message”, “Sticker”, etc., with or without captions.
+
+
+Once notification is cleared or suppressed (e.g., opened in WhatsApp directly), you stop seeing further data unless a new notification appears.
+
+
+You accept these constraints: it’s best-effort reconstruction based on notifications.
+
+
+---
+
+3.2 Ingestion Pipeline
+
+Flow:
+
+1. onNotificationPosted(statusBarNotification) triggers.
+
+
+2. Extract a normalized event:
+
+chatId → hashed from title + maybe phone ID if available.
+
+senderName
+
+messageText (or placeholder like [Photo])
+
+isIncoming vs isOutgoing (you can infer outgoing from notifications like "You: ...", and from reply actions).
+
+timestamp
+
+rawNotificationId
+
+
+
+3. Persist to DB as a MessageEntity.
+
+
+4. If app is configured for auto-reply on that chat:
+
+Push event to AutoReplyEngine.
+
+
+
+
+
+---
+
+4. Local database design (Room)
+
+Entities (simplified conceptual view):
+
+1. ChatEntity
+
+chatId: String (primary key)
+
+title: String (contact/group name)
+
+isGroup: Boolean
+
+autoReplyEnabled: Boolean
+
+preferredTone: String? (e.g., flirty, funny, professional, or auto)
+
+lastMessageTimestamp: Long
+
+lastLLMReplyTimestamp: Long?
+
+
+
+2. MessageEntity
+
+messageId: Long (PK)
+
+chatId: String (FK → ChatEntity)
+
+senderName: String?
+
+direction: Enum(INCOMING, OUTGOING, BOT_OUTGOING)
+
+text: String?
+
+mediaType: Enum(TEXT, IMAGE, VIDEO, AUDIO, FILE, STICKER, UNKNOWN)
+
+mediaCaption: String?
+
+timestamp: Long
+
+source: Enum(NOTIFICATION, MANUAL_ENTRY, SYSTEM)
+
+rawNotificationId: Int?
+
+isDeletedInWhatsApp: Boolean (optional flag, if you detect “This message was deleted” later)
+
+
+
+3. MediaMetaEntity
+
+mediaId: Long (PK)
+
+messageId: Long (FK → MessageEntity)
+
+mediaType: ... (again, for redundancy)
+
+thumbnailBase64: String? (if notification includes it; often won’t)
+
+extraInfoJson: String? (resolution, duration, etc. if you can get it)
+
+
+
+4. SettingsEntity (or Preferences)
+
+global settings: random delay min/max, default tone, Groq API key, etc.
+
+
+
+5. LLMLogEntity
+
+logId: Long
+
+chatId: String
+
+inputContextSnippet: String
+
+generatedReply: String
+
+toneUsed: String
+
+timestamp: Long
+
+wasAutoSent: Boolean
+
+userFeedback: Enum(UPVOTE, DOWNVOTE, NONE)
+
+
+
+
+
+---
+
+5. Auto-reply engine & random delay
+
+5.1 AutoReplyEngine responsibilities
+
+Decide when to generate a reply.
+
+Build context + tone info.
+
+Call LLM via Groq API.
+
+Schedule sending the reply via notification action with random delay.
+
+
+Inputs:
+
+New MessageEntity (INCOMING).
+
+Chat settings (autoReplyEnabled, preferredTone, etc.).
+
+Global settings (delay range, quiet hours, etc.).
+
+
+Steps:
+
+1. Check gating conditions:
+
+autoReplyEnabled == true for that chat?
+
+Message direction == INCOMING?
+
+Not in quiet hours? (if you add that)
+
+Not responding too frequently? (e.g., avoid spamming a person).
+
+
+
+2. Build context window:
+
+Fetch last N messages from that chat (e.g., last 10).
+
+Include direction, approximate time gaps, emoji usage.
+
+
+
+3. Determine tone:
+
+If preferredTone set for chat, use that.
+
+Otherwise:
+
+Use simple heuristic OR ask LLM to infer mood from recent messages (“romantic/flirty/funny/professional/casual?”).
+
+For now you can let LLM decide tone internally.
+
+
+
+
+4. Prepare LLM prompt:
+
+Describe you want short WhatsApp-style replies.
+
+Tell LLM the language mix: “User chats in Hinglish/Benglish, preserve their style, code-mixing, emoji frequency.”
+
+Provide context messages as role-tagged lines.
+
+
+
+5. Call LLM (Groq):
+
+Async call (suspend function / coroutine).
+
+Handle failures: timeouts, rate-limits → fallback to “no reply” or cached pattern like “typing…” style.
+
+
+
+6. Random delay calculation:
+
+Use user-configurable range, e.g., 5–60 seconds.
+
+delayMs = random(minDelayMs..maxDelayMs).
+
+Schedule via:
+
+Handler in foreground, OR
+
+WorkManager / CoroutineScope for background stable scheduling.
+
+
+
+
+7. Auto-send:
+
+After delay, make sure:
+
+Notification still exists and has a “Reply” action.
+
+Chat is still eligible for auto-reply (user might have turned off in the meantime).
+
+
+Programmatically send reply text using the RemoteInput “Reply” action (same mechanism as notification quick responses).
+
+Store sent message as MessageEntity(direction=BOT_OUTGOING).
+
+
+
+8. Logging & feedback:
+
+Save LLMLog entry.
+
+If user later opens your app, they can upvote/downvote the suggested reply for analysis.
+
+
+
+
+
+---
+
+6. LLM integration (Groq) & Hinglish handling
+
+6.1 LLM Client Layer
+
+LLMClient responsibilities:
+
+Keep Groq API key and base URL.
+
+Define a stable “chat” interface:
+
+generateReply(chatContext: List<Message>, tone: String?, instructions: StyleConfig): LLMResult
+
+
+Handle:
+
+HTTP errors.
+
+Retries with backoff.
+
+Basic caching (same last user message + context → same reply).
+
+
+
+6.2 Prompt design principles (no code, just structure)
+
+You’ll use a system + user + context style:
+
+System:
+
+You are an assistant that writes WhatsApp-style replies in short Hinglish/Benglish.
+
+Respect code-mixing, emoji density & tone.
+
+Never reveal you’re an AI. You are “me”.
+
+Tone: {tone or “auto-detect from context”}.
+
+Output one reply, max ~150 characters, unless longer is clearly needed.
+
+
+User:
+
+Provide:
+
+Recent message history: lines annotated with [ME], [THEM].
+
+The last incoming message to reply to.
+
+Optional hints: “The relationship with this person is X (friend, crush, colleague). Keep it {flirty/professional/etc.}”.
+
+
+
+
+Hinglish/Benglish specifics:
+
+In the instructions:
+
+“User often mixes English with Hindi/Bengali in Latin script (Hinglish/Benglish). Understand and respond in the same style and script. Do not translate everything to pure English unless that’s the previous style.”
+
+
+
+
+---
+
+7. Mood, style, and personalization
+
+You’re not doing a heavy rule-based system; LLM is the core. But you still have configuration:
+
+Per-chat config:
+
+Tone preset: auto / flirty / romantic / funny / professional / chill.
+
+Aggressiveness: how often to auto-reply (every message vs occasional).
+
+Max reply length.
+
+
+Global config:
+
+Delay range (min/max seconds).
+
+Quiet hours (e.g., no auto-reply 3–7 AM).
+
+Language preference: Hinglish-heavy vs more English.
+
+
+
+Internally, you can still log mood tags per conversation (from LLM’s analysis) to study how often it’s flirty vs professional, but the reply generation remains pure LLM.
+
+
+---
+
+8. UI / UX architecture
+
+8.1 Main screens
+
+1. Chat List Screen
+
+Shows all ChatEntity:
+
+Title
+
+Last message snippet
+
+Timestamp
+
+Auto-reply status (small icon).
+
+
+Filters: show only favorites, only auto-reply-enabled chats.
+
+
+
+2. Chat Detail Screen
+
+WhatsApp-like timeline:
+
+INCOMING messages on left (different color).
+
+OUTGOING + BOT_OUTGOING on right.
+
+Media type icons: “[Image]”, “[Voice note]” etc.
+
+
+Controls:
+
+Toggle: Auto-reply ON/OFF (per chat).
+
+Dropdown: tone selection.
+
+Button: “Generate reply manually” → calls LLM and shows one or multiple options.
+
+Long press on message → show metadata (when captured, deleted flag, etc.).
+
+
+
+
+3. Settings Screen
+
+Global:
+
+Groq API key input.
+
+Min/max delay slider.
+
+Default tone for new chats.
+
+“Log LLM calls” toggle.
+
+
+Privacy:
+
+“Clear all stored chats”.
+
+“Export anonymized logs” (optional).
+
+
+
+
+4. LLM Debug Panel (Developer mode)
+
+Shows raw prompt/response pairs (for you, as developer, to improve prompts).
+
+Not needed for final user, but you want this for debugging.
+
+
+
+
+8.2 Notification-based interactions
+
+Inline actions:
+
+Optionally, for your app’s own notifications, you can show:
+
+“Suggested reply: <text>”
+
+“Send” and “Edit” actions.
+
+
+But for WhatsApp sending, you rely on WhatsApp notifications’ Reply action.
+
+
+
+
+---
+
+9. Random delays & human-like behavior
+
+Design choices:
+
+Use a per-chat jitter so you don’t always reply with same delay range for all.
+
+Maybe depend on message length:
+
+Longer reply → slightly longer delay to simulate typing.
+
+
+Optional: Add a setting “simulate typing indicator” by:
+
+Sending a first shorter reply or no-op is tricky because you don’t control WhatsApp typing indicator, so safest is just delay + send once.
+
+
+
+Constraints:
+
+Must ensure:
+
+Delay scheduler is resilient to process death; WorkManager or foreground service if you want maximum reliability.
+
+If notification disappears before sending, cancel the auto-send.
+
+
+
+
+---
+
+10. Security, privacy, and ethics (even for personal use)
+
+Even if you’re not shipping publicly:
+
+The app will contain others’ messages in your DB.
+
+Good practices:
+
+Encrypt DB at rest (SQLCipher / encrypted Room).
+
+Add a simple lock (app-level PIN/biometric).
+
+Avoid sending raw chat text to third parties beyond Groq (and Groq’s privacy terms are something you should read separately).
+
+
+Consider a big warning in Settings:
+
+“This app automatically responds on your behalf. Use at your own risk; always supervise conversations that matter.”
+
+
+
+
+---
+
+11. Phases of implementation (practical roadmap)
+
+Phase 1 – Core notification logger (no LLM yet)
+
+Goal: Stable capture & reconstruction of WhatsApp chats inside your app.
+
+Implement NotificationListenerService.
+
+Filter WhatsApp notifications and parse:
+
+Chat title.
+
+Message text or summary.
+
+MessagingStyle lines, if available.
+
+
+Insert messages into Room DB.
+
+Build basic UI:
+
+Chat list + chat detail, reading from DB.
+
+
+Test edge cases:
+
+Single vs multiple new messages.
+
+Group chats vs individual.
+
+Media messages (capture at least type + caption text).
+
+
+
+Deliverable: Your app is a “WhatsApp history log” based only on notifications.
+
+
+---
+
+Phase 2 – Manual AI suggestions (LLM in the loop, no auto-send yet)
+
+Goal: Let user manually request smart AI replies.
+
+Integrate Groq LLM client:
+
+Config screen to save API key.
+
+Simple wrapper for “given context + last message → one reply”.
+
+
+Design & implement prompt structure for Hinglish/Benglish + tone.
+
+From Chat Detail Screen:
+
+User taps “Suggest reply” → call LLM.
+
+Show reply inside UI; user can:
+
+Copy it.
+
+Edit it before copying/sending in WhatsApp manually.
+
+
+
+Log all LLM interactions (LLMLogEntity).
+
+
+Deliverable: Your app is a smart suggestion keyboard: you see suggestions, but you still send messages yourself.
+
+
+---
+
+Phase 3 – Auto-reply engine + random delay via notification quick reply
+
+Goal: Automatic sending via WhatsApp notification “Reply” action.
+
+Extend notification listener to:
+
+Save reference to the latest notification for each chat (so you can reuse its Reply action).
+
+
+Implement AutoReplyEngine:
+
+On new incoming message:
+
+If auto-reply enabled for that chat, build context and call LLM asynchronously.
+
+After receiving reply, schedule auto-send with random delay.
+
+
+
+Implement sender:
+
+Locate the correct Notification + “Reply” action.
+
+Fill RemoteInput with generated reply.
+
+Trigger the PendingIntent to send it.
+
+
+Add global and per-chat toggles in UI.
+
+Add “kill switch”:
+
+Global Auto-reply OFF in Settings stops all scheduled sends.
+
+
+
+Deliverable: Bot can truly auto-respond via notifications with human-like delays.
+
+
+---
+
+Phase 4 – Intelligence & polish
+
+Goal: Make it feel “smart” and less obviously bot-like.
+
+Add tone presets per chat:
+
+Use previous interactions to auto-suggest tone.
+
+
+Use LLM for mood inference:
+
+Occasionally ask: “What is the general vibe of this conversation?” and store tags (“playful”, “serious”, etc.).
+
+
+Add frequency control:
+
+Not every message should get a bot reply.
+
+Rules like: “only reply if user hasn’t replied themselves for X seconds”, or “only reply if the other person asked a direct question”.
+
+
+Add analysis dashboard (for you):
+
+Stats: messages per chat, % auto-replied, etc.
+
+
+
+
+---
+
+12. Where there is room for errors & how this architecture minimizes them
+
+Notification truncation / multi-message loss:
+
+You accept that some messages may be summarized. The DB always represents “what the notification showed at the time”.
+
+Architecture doesn’t assume perfect 1:1 mapping; you treat history as lossy log.
+
+
+Auto-send wrong person:
+
+Sender uses the notification’s own Reply action for that specific notification → strongly tied to correct chat.
+
+You do not try to open WhatsApp UI and paste; instead you reuse system constructs to avoid mismatches.
+
+
+Process killed before sending:
+
+Use WorkManager / background scheduling for delayed sends where necessary.
+
+Re-check conditions before sending (notification still present, auto-reply still ON).
+
+
+Language weirdness:
+
+Prompt explicitly instructs the LLM to mirror user style.
+
+You keep tone + code-mixing decisions in system prompt, not scattered in code.
+
+
+Accidental spam or over-replies:
+
+AutoReplyEngine has throttling: track last bot reply time, max replies per hour per chat, etc.
+
+
+
+The architecture you now have is:
+
+Kotlin Android app
+
+On-device notification-driven chat logger
+
+Local Room DB to store your own view of chats + metadata
+
+Groq LLM integration for context-aware, tone-aware Hinglish/Benglish replies
+
+AutoReplyEngine to decide + schedule LLM calls and random-delayed notification replies
+
+Configurable UI with per-chat tone + auto-reply settings.

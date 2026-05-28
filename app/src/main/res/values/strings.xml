@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WhatsApp Auto Reply</string>
+    <string name="notification_access_required">Notification access is required to monitor WhatsApp messages</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="chat_list_title">Chats</string>
+    <string name="settings_title">Settings</string>
+    <string name="no_chats">No chats yet. Start chatting on WhatsApp!</string>
+    <string name="auto_reply_enabled">Auto-reply enabled</string>
+    <string name="auto_reply_disabled">Auto-reply disabled</string>
+</resources>
+
