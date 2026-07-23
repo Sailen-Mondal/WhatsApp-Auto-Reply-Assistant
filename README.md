@@ -1,97 +1,132 @@
-# WhatsApp Auto-Reply Companion App
+# WhatsApp Auto-Reply Assistant
 
-An Android companion app that monitors WhatsApp notifications, reconstructs chats locally, and uses LLM (Hugging Face API - Zephyr-7b) to generate context-aware auto-replies in Hinglish/Benglish style.
+A native Android assistant that turns supported WhatsApp notifications into context-aware reply suggestions and optional automatic replies. It observes notification content locally, applies configurable safety rules, generates a concise response with an LLM, and submits that response through WhatsApp's notification Reply action.
 
-## Project Status
+> This project is not affiliated with, endorsed by, or supported by WhatsApp or Meta. It does not use the official WhatsApp Business API.
 
-### ✅ Phase 1: Core Notification Logger (COMPLETED)
-- ✅ Android project structure set up
-- ✅ Room database with all entities (Chat, Message, MediaMeta, Settings, LLMLog)
-- ✅ NotificationListenerService implementation
-- ✅ Notification ingestion pipeline
-- ✅ Basic Compose UI (Chat List & Chat Detail screens)
-- ✅ Dependency injection with Hilt
+## How It Works
 
-### ✅ Phase 2: Manual AI Suggestions (COMPLETED)
-- ✅ LLM integration with Hugging Face API (Zephyr-7b)
-- ✅ Manual reply suggestion feature
-- ✅ Settings screen for API key
-- ✅ Copy-to-clipboard functionality for suggested replies
-- ✅ Edit functionality to modify suggested replies
-- ✅ Upvote/downvote feedback system
-- ✅ LLM Debug Panel for viewing logs
+```text
+WhatsApp notification
+  -> Notification listener validates and parses the message
+  -> Room database stores local chat context
+  -> Auto-reply engine applies safety and timing rules
+  -> LLM generates a short contextual reply
+  -> Android RemoteInput invokes WhatsApp's Reply notification action
+```
 
-### ✅ Phase 3: Auto-Reply Engine (IMPLEMENTED)
-- ✅ Auto-reply decision logic (Global/Chat switches, Question detection)
-- ✅ Random delay system with "typing" simulation
-- ✅ Notification reply action integration (Send replies via notification)
-- ✅ Safety controls (Group chat exclusion, User activity check)
-
-### ⏳ Phase 4: Intelligence & Polish (TODO)
-- Advanced tone management
-- Analytics dashboard
-- Security enhancements (Encryption)
+The app works only while a reply-capable WhatsApp notification is available. It does not read WhatsApp's private database, automate the WhatsApp UI, or recover historical messages that were never received as notifications.
 
 ## Features
 
-### ✅ What It DOES
-1.  **Notification Monitoring**: Listens for WhatsApp notifications to capture messages and reconstruct chat history locally.
-2.  **Intelligent Auto-Reply**:
-    -   **Decision Engine**: Configurable rules for when to reply (e.g., only questions, exclude groups).
-    -   **Human-like Delays**: Calculates random delays (5-60s) based on message length.
-    -   **User Activity Check**: Pauses auto-reply if you have sent a message recently.
-3.  **LLM Integration**:
-    -   Uses **Hugging Face API** (Zephyr-7b model).
-    -   Maintains a specific **Persona** (e.g., Flirty, Funny, Professional).
-    -   Generates responses in **Hinglish/Benglish**.
-4.  **Action Execution**: Sends replies by triggering the native "Reply" action in WhatsApp notifications.
-
-### ❌ Limitations (What It DOES NOT DO)
-1.  **No Past History**: Cannot read messages sent before the app was installed or if notifications were dismissed.
-2.  **No Media Content**: Does not download images/videos; only logs them as metadata (e.g., "[IMAGE]").
-3.  **No Official API**: Does not use WhatsApp Business API; relies entirely on notification access.
-4.  **Background Reliability**: Subject to Android's battery optimizations. Requires the notification to remain visible to send a reply.
+- Captures notifications from WhatsApp and WhatsApp Business.
+- Reconstructs a local, notification-derived conversation history.
+- Generates manual reply suggestions with language and tone awareness.
+- Supports per-chat and global auto-reply controls.
+- Applies guardrails: group exclusion, question-only mode, manual-user activity wait, cooldowns, per-chat rate limits, global rate limits, duplicate detection, and bot-loop prevention.
+- Adds a randomized, message-length-aware delay before an auto-reply.
+- Supports configurable response tones, including friendly, professional, funny, chill, romantic, and formal.
+- Provides chat history, reply editing, manual sending, analytics, LLM logs, and feedback controls.
+- Encrypts the stored API-key setting with Android Keystore AES-GCM when accessed through `SettingsRepository`.
+- Runs a foreground keep-alive service and restores it after device boot when auto-reply is enabled.
+- Periodically trims old messages and LLM logs with WorkManager.
 
 ## Architecture
 
-The app follows Clean Architecture with 4 layers:
+The codebase follows a practical Clean Architecture and MVVM structure.
 
-1.  **Presentation Layer**: Jetpack Compose UI, ViewModels
-2.  **Domain Layer**: Business logic, AutoReplyEngine
-3.  **Data Layer**: Room database, Repositories, Notification processing, HuggingFaceLLMClient
-4.  **OS Integration**: NotificationListenerService, KeepAliveService
+| Layer | Responsibility |
+| --- | --- |
+| `presentation` | Jetpack Compose screens, navigation, and ViewModels. |
+| `domain` | Auto-reply decisions, configuration, context models, and delay calculation. |
+| `data` | Room persistence, repositories, notification parsing, LLM networking, and Android service integrations. |
+| Android platform | Notification listener, RemoteInput reply actions, foreground service, boot receiver, and permissions. |
 
-## Setup Instructions
+Important entry points:
 
-### Prerequisites
-- Android Studio Hedgehog or later
-- Android SDK 26+ (Android 8.0+)
-- Kotlin 1.9.20+
-- Hugging Face API Key
-
-### Building the Project
-1.  Clone or navigate to the project directory
-2.  Open in Android Studio
-3.  Sync Gradle files
-4.  Build and run on a device/emulator
-
-### Required Permissions
-The app requires **Notification Access** permission to monitor WhatsApp notifications:
-1.  Install the app
-2.  Go to Settings → Apps → Special app access → Notification access
-3.  Enable access for "WhatsApp Auto Reply"
+- `WhatsAppAutoReplyApplication`: configures Hilt and WorkManager.
+- `MainActivity`: hosts the Compose application and permission onboarding.
+- `WhatsAppNotificationListener`: receives and validates WhatsApp notifications.
+- `NotificationProcessor`: extracts messages and writes them to Room.
+- `AutoReplyEngine`: decides whether a message is eligible for an automatic reply.
+- `HuggingFaceLLMClient`: the legacy class name for the current OpenRouter-backed, OpenAI-compatible LLM client.
+- `NotificationReplySender`: sends reply text through Android `RemoteInput` and WhatsApp's notification action.
 
 ## Technology Stack
 
--   **Language**: Kotlin
--   **UI**: Jetpack Compose
--   **Database**: Room
--   **DI**: Hilt
--   **Architecture**: MVVM + Clean Architecture
--   **AI/LLM**: Hugging Face API (Retrofit)
--   **Background Work**: Coroutines + WorkManager
+- Kotlin and Java 17
+- Android SDK 26-34
+- Jetpack Compose and Material 3
+- Navigation Compose
+- MVVM, ViewModel, Kotlin Flow, and Coroutines
+- Hilt dependency injection and KAPT
+- Room / SQLite
+- WorkManager and Hilt WorkManager
+- Android `NotificationListenerService`, `RemoteInput`, foreground services, and broadcast receivers
+- Retrofit, OkHttp, Gson, and OpenRouter's OpenAI-compatible Chat Completions API
+- Android Keystore with AES/GCM encryption
+- JUnit, MockK, coroutine test utilities, MockWebServer, Espresso, and Compose UI testing dependencies
+
+## Requirements
+
+- Android Studio Hedgehog or newer
+- JDK 17
+- Android device or emulator running Android 8.0 (API 26) or newer
+- A WhatsApp or WhatsApp Business installation for end-to-end notification testing
+- An OpenRouter API key for LLM features
+
+## Getting Started
+
+1. Clone the repository and open it in Android Studio.
+2. Create `local.properties` in the project root if it does not already exist.
+3. Add your API key:
+
+   ```properties
+   OPENROUTER_API_KEY=your_key_here
+   ```
+
+4. Sync Gradle and run the `app` configuration on a physical device or emulator.
+5. Grant notification access when prompted in the app.
+6. For reliable background behavior, exempt the app from battery optimization when the app requests it.
+
+The build reads `OPENROUTER_API_KEY` into `BuildConfig`. Do not commit `local.properties` or a real API key.
+
+## Permissions
+
+| Permission / capability | Why it is needed |
+| --- | --- |
+| Notification listener access | Read supported WhatsApp notifications and access their Reply action. |
+| Internet | Call the configured LLM provider. |
+| Post notifications | Show the foreground-service status notification. |
+| Foreground service | Keep the assistant active while auto-reply is enabled. |
+| Boot completed | Restore the keep-alive service after a reboot when enabled. |
+| Battery-optimization exemption | Improve reliability on devices that aggressively stop background work. |
+
+## Privacy and Limitations
+
+- Conversation data is stored locally in the app's Room database.
+- The relevant context is sent to the configured LLM provider when a suggestion or auto-reply is generated.
+- The assistant only sees what is present in supported notifications; dismissed or old messages are unavailable.
+- Media files are not downloaded or interpreted. The app stores only basic notification-derived media metadata.
+- Replies require a current, reply-capable WhatsApp notification. Android and device-manufacturer battery policies can interrupt the service.
+- Notification parsing and group detection use heuristics, so behavior may differ across WhatsApp versions, languages, and notification formats.
+
+Use this project only with accounts and conversations for which you have appropriate authorization. Review generated replies before relying on them in sensitive, professional, legal, medical, or financial conversations.
+
+## Development
+
+Run unit tests from Android Studio or with:
+
+```powershell
+.\gradlew.bat test
+```
+
+The most important unit tests cover the auto-reply decision engine and LLM-context construction. Test notification behavior on a real device as notification content and reply actions vary by Android and WhatsApp version.
+
+## Contributing
+
+Contributions are welcome. Please keep changes focused, add or update tests for behavior changes, avoid committing secrets, and document any new permission or privacy impact.
 
 ## License
 
-Personal project - not for public distribution.
-
+This project is licensed under the [MIT License](LICENSE).
