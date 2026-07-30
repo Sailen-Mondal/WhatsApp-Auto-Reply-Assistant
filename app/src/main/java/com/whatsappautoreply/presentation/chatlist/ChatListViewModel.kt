@@ -14,13 +14,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.whatsappautoreply.data.repository.SettingsRepository
+
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _filter = MutableStateFlow(ChatFilter.ALL)
     val filter: StateFlow<ChatFilter> = _filter.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val globallyEnabled = settingsRepository.getString("auto_reply_enabled")?.toBoolean() ?: false
+            if (globallyEnabled) {
+                chatRepository.updateAllChatsAutoReply(true)
+            }
+        }
+    }
 
     val chats: StateFlow<List<ChatEntity>> = combine(
         chatRepository.getAllChats(),

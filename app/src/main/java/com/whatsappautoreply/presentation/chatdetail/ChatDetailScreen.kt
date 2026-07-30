@@ -76,6 +76,9 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.HorizontalDivider
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailScreen(
@@ -83,18 +86,18 @@ fun ChatDetailScreen(
     onBackClick: () -> Unit,
     viewModel: ChatDetailViewModel = hiltViewModel()
 ) {
-    val chat by viewModel.getChat(chatId).collectAsState(initial = null)
-    val messages by viewModel.getMessages(chatId).collectAsState(initial = emptyList())
-    val suggestedReply by viewModel.suggestedReply.collectAsState()
-    val editedReply by viewModel.editedReply.collectAsState()
-    val suggestedTone by viewModel.suggestedTone.collectAsState()
-    val suggestedMood by viewModel.suggestedMood.collectAsState()
-    val isSuggesting by viewModel.isSuggesting.collectAsState()
-    val suggestionError by viewModel.suggestionError.collectAsState()
-    val userFeedback by viewModel.userFeedback.collectAsState()
-    val copySuccessMessage by viewModel.copySuccessMessage.collectAsState()
-    val isSendingReply by viewModel.isSendingReply.collectAsState()
-    val replySentStatus by viewModel.replySentStatus.collectAsState()
+    val chat by viewModel.getChat(chatId).collectAsStateWithLifecycle(initialValue = null)
+    val messages by viewModel.getMessages(chatId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val suggestedReply by viewModel.suggestedReply.collectAsStateWithLifecycle()
+    val editedReply by viewModel.editedReply.collectAsStateWithLifecycle()
+    val suggestedTone by viewModel.suggestedTone.collectAsStateWithLifecycle()
+    val suggestedMood by viewModel.suggestedMood.collectAsStateWithLifecycle()
+    val isSuggesting by viewModel.isSuggesting.collectAsStateWithLifecycle()
+    val suggestionError by viewModel.suggestionError.collectAsStateWithLifecycle()
+    val userFeedback by viewModel.userFeedback.collectAsStateWithLifecycle()
+    val copySuccessMessage by viewModel.copySuccessMessage.collectAsStateWithLifecycle()
+    val isSendingReply by viewModel.isSendingReply.collectAsStateWithLifecycle()
+    val replySentStatus by viewModel.replySentStatus.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -180,8 +183,8 @@ fun ChatDetailScreen(
     ) { padding ->
         Column(
             modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
+                .fillMaxSize()
+                .padding(padding)
         ) {
             // Auto-scroll to bottom on new messages
             LaunchedEffect(messages.size) {
@@ -197,7 +200,7 @@ fun ChatDetailScreen(
                 contentPadding = PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(messages) { message ->
+                items(messages, key = { it.messageId }) { message ->
                     MessageBubble(message = message)
                 }
             }
@@ -230,7 +233,7 @@ fun ChatDetailScreen(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             SuggestionSection(
                 isSuggesting = isSuggesting,
@@ -270,6 +273,17 @@ fun ChatDetailScreen(
 fun MessageBubble(message: MessageEntity) {
     val isIncoming = message.direction == MessageDirection.INCOMING
     val alignment = if (isIncoming) Alignment.Start else Alignment.End
+    val bubbleShape = remember(isIncoming) {
+        RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 16.dp,
+            bottomStart = if (isIncoming) 4.dp else 16.dp,
+            bottomEnd = if (isIncoming) 16.dp else 4.dp
+        )
+    }
+    val timeText = remember(message.timestamp) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -278,7 +292,7 @@ fun MessageBubble(message: MessageEntity) {
         Row(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(bubbleShape)
                 .background(
                     if (isIncoming)
                         MaterialTheme.colorScheme.surfaceVariant
@@ -322,21 +336,27 @@ fun MessageBubble(message: MessageEntity) {
                 }
                 
                 if (message.direction == MessageDirection.BOT_OUTGOING) {
-                    Text(
-                        text = "🤖 Auto",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(4.dp),
                         modifier = Modifier.padding(top = 4.dp)
-                    )
+                    ) {
+                        Text(
+                            text = "🤖 Auto",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
                 }
             }
         }
         
         Text(
-            text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp)),
+            text = timeText,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp, top = 2.dp)
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp)
         )
     }
 }

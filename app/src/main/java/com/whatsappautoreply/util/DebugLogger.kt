@@ -42,7 +42,7 @@ object DebugLogger {
         if (!isDebugEnabled) return
         val entry = formatEntry("EVENT", tag, event, data)
         writeEntry(entry)
-        Log.d(tag, "[$event] ${formatData(data)}")
+        try { Log.d(tag, "[$event] ${formatData(data)}") } catch (_: Throwable) {}
     }
 
     /**
@@ -52,7 +52,7 @@ object DebugLogger {
         if (!isDebugEnabled) return
         val entry = formatEntry("WARN", tag, event, data)
         writeEntry(entry)
-        Log.w(tag, "[$event] ${formatData(data)}")
+        try { Log.w(tag, "[$event] ${formatData(data)}") } catch (_: Throwable) {}
     }
 
     /**
@@ -70,7 +70,7 @@ object DebugLogger {
         }
         val entry = formatEntry("ERROR", tag, event, errorData)
         writeEntry(entry)
-        Log.e(tag, "[$event] ${formatData(errorData)}", error)
+        try { Log.e(tag, "[$event] ${formatData(errorData)}", error) } catch (_: Throwable) {}
     }
 
     /**
@@ -83,7 +83,7 @@ object DebugLogger {
     /**
      * Get the log file path for sharing or viewing.
      */
-    fun getLogFilePath(): String = logFile.absolutePath
+    fun getLogFilePath(): String = try { logFile.absolutePath } catch (_: Throwable) { "" }
 
     /**
      * Clear all logs (file + memory).
@@ -94,8 +94,8 @@ object DebugLogger {
             if (logFile.exists()) {
                 logFile.writeText("")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear log file", e)
+        } catch (e: Throwable) {
+            try { Log.e(TAG, "Failed to clear log file", e) } catch (_: Throwable) {}
         }
     }
 
@@ -132,8 +132,8 @@ object DebugLogger {
             FileWriter(logFile, true).use { writer ->
                 writer.appendLine(entry)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to write to log file: ${e.message}")
+        } catch (e: Throwable) {
+            try { Log.e(TAG, "Failed to write to log file: ${e.message}") } catch (_: Throwable) {}
         }
     }
 }

@@ -5,6 +5,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.whatsappautoreply.data.database.dao.ChatDao
 import com.whatsappautoreply.data.database.dao.MessageDao
+import com.whatsappautoreply.data.database.dao.SettingsDao
 import com.whatsappautoreply.data.database.entity.*
 import com.whatsappautoreply.util.ChatUtils
 import com.whatsappautoreply.util.DebugLogger
@@ -16,6 +17,7 @@ import javax.inject.Singleton
 class NotificationProcessor @Inject constructor(
     private val chatDao: ChatDao,
     private val messageDao: MessageDao,
+    private val settingsDao: SettingsDao,
     private val notificationStore: NotificationStore
 ) {
     private val TAG = "NotificationProcessor"
@@ -64,10 +66,12 @@ class NotificationProcessor @Inject constructor(
         var chat = chatDao.getChatById(chatId)
         val isNewChat = chat == null
         if (chat == null) {
+            val globalAutoReply = settingsDao.getSetting("auto_reply_enabled")?.value?.toBoolean() ?: false
             chat = ChatEntity(
                 chatId = chatId,
                 title = title,
                 isGroup = isGroup,
+                autoReplyEnabled = globalAutoReply,
                 lastMessageTimestamp = sbn.postTime
             )
             chatDao.insertChat(chat)

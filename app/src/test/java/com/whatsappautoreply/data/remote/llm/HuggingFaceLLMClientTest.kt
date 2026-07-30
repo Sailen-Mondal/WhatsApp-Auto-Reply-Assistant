@@ -10,15 +10,22 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
+import com.whatsappautoreply.data.repository.SettingsRepository
+import com.whatsappautoreply.domain.brain.BrainLoader
+
 class HuggingFaceLLMClientTest {
 
     private lateinit var llmLogDao: LLMLogDao
+    private lateinit var settingsRepository: SettingsRepository
+    private lateinit var brainLoader: BrainLoader
     private lateinit var client: HuggingFaceLLMClient
 
     @Before
     fun setup() {
         llmLogDao = mockk(relaxed = true)
-        client = HuggingFaceLLMClient(llmLogDao)
+        settingsRepository = mockk(relaxed = true)
+        brainLoader = mockk(relaxed = true)
+        client = HuggingFaceLLMClient(llmLogDao, settingsRepository, brainLoader)
     }
 
     @Test

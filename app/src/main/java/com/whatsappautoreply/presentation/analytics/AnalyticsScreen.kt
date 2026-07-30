@@ -27,16 +27,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.whatsappautoreply.data.database.dao.DirectionStat
 import com.whatsappautoreply.data.database.dao.ToneStat
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
     onBackClick: () -> Unit,
     viewModel: AnalyticsViewModel = hiltViewModel()
 ) {
-    val totalMessages by viewModel.totalMessages.collectAsState()
-    val totalAutoReplies by viewModel.totalAutoReplies.collectAsState()
-    val directionStats by viewModel.messageDirectionStats.collectAsState()
-    val toneStats by viewModel.toneDistribution.collectAsState()
+    val totalMessages by viewModel.totalMessages.collectAsStateWithLifecycle()
+    val totalAutoReplies by viewModel.totalAutoReplies.collectAsStateWithLifecycle()
+    val directionStats by viewModel.messageDirectionStats.collectAsStateWithLifecycle()
+    val toneStats by viewModel.toneDistribution.collectAsStateWithLifecycle()
 
     val replyRate = if (totalMessages > 0)
         (totalAutoReplies.toFloat() / totalMessages * 100).toInt()

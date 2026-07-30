@@ -33,8 +33,11 @@ interface ChatDao {
     @Query("UPDATE chats SET lastLLMReplyTimestamp = :timestamp WHERE chatId = :chatId")
     suspend fun updateLastLLMReplyTimestamp(chatId: String, timestamp: Long)
 
-    @Query("UPDATE chats SET autoReplyEnabled = 1 WHERE autoReplyEnabled = 0")
+    @Query("UPDATE chats SET autoReplyEnabled = 1")
     suspend fun enableAllChatsAutoReply()
+
+    @Query("UPDATE chats SET autoReplyEnabled = 0")
+    suspend fun disableAllChatsAutoReply()
 
     @Delete
     suspend fun deleteChat(chat: ChatEntity)

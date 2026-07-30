@@ -179,6 +179,28 @@ The test suite includes tests for `AutoReplyEngine` decision logic, LLM circuit-
 
 ---
 
+## 🎨 Brand & Icon Identity Architecture
+
+The app uses a **Professional Apple HIG-Inspired Visual Theme**, featuring frosted glassmorphism, superellipse continuous curvature, deep space graphite backplates, and glowing emerald AI neural sparks.
+
+### Asset Distribution (Industry Standard Structure)
+
+- **Store & Distribution**:
+  - `app/src/main/ic_launcher-playstore.png` (512x512 High-Res Play Store Asset)
+- **Launcher Icons (`mipmap-*`)**:
+  - `mipmap-mdpi` (48x48) - `ic_launcher.webp`, `ic_launcher_round.webp`
+  - `mipmap-hdpi` (72x72) - `ic_launcher.webp`, `ic_launcher_round.webp`
+  - `mipmap-xhdpi` (96x96) - `ic_launcher.webp`, `ic_launcher_round.webp`
+  - `mipmap-xxhdpi` (144x144) - `ic_launcher.webp`, `ic_launcher_round.webp`
+  - `mipmap-xxxhdpi` (192x192) - `ic_launcher.webp`, `ic_launcher_round.webp`
+  - `mipmap-anydpi-v26` - Adaptive vector layout definitions (`ic_launcher.xml`, `ic_launcher_round.xml`)
+- **In-App Branding Assets (`res/drawable`)**:
+  - `res/drawable/ic_app_logo.webp` (512x512 Rounded Squircle In-App Branding Header Logo)
+  - `res/drawable/ic_app_logo_small.webp` (128x128 TopAppBar Header Icon)
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
+

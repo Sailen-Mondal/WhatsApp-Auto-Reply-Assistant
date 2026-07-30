@@ -25,14 +25,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.whatsappautoreply.domain.brain.BrainFile
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrainEditorScreen(
     onBackClick: () -> Unit,
     viewModel: BrainEditorViewModel = hiltViewModel()
 ) {
-    val files by viewModel.files.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val files by viewModel.files.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -181,7 +183,7 @@ private fun BrainFileCard(
                     modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Divider()
+                    HorizontalDivider()
 
                     // Summary text
                     Text(

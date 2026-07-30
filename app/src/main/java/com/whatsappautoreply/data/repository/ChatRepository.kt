@@ -18,6 +18,14 @@ class ChatRepository @Inject constructor(
         chatDao.updateAutoReplyEnabled(chatId, enabled)
     }
 
+    suspend fun updateAllChatsAutoReply(enabled: Boolean) {
+        if (enabled) {
+            chatDao.enableAllChatsAutoReply()
+        } else {
+            chatDao.disableAllChatsAutoReply()
+        }
+    }
+
     suspend fun updatePreferredTone(chatId: String, tone: String?) {
         chatDao.updatePreferredTone(chatId, tone)
     }

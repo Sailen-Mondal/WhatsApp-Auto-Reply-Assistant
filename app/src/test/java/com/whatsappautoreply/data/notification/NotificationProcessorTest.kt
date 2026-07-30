@@ -16,10 +16,13 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
 
+import com.whatsappautoreply.data.database.dao.SettingsDao
+
 class NotificationProcessorTest {
 
     private lateinit var chatDao: ChatDao
     private lateinit var messageDao: MessageDao
+    private lateinit var settingsDao: SettingsDao
     private lateinit var notificationStore: NotificationStore
     private lateinit var processor: NotificationProcessor
     private lateinit var sbn: StatusBarNotification
@@ -30,8 +33,9 @@ class NotificationProcessorTest {
     fun setup() {
         chatDao = mockk(relaxed = true)
         messageDao = mockk(relaxed = true)
+        settingsDao = mockk(relaxed = true)
         notificationStore = mockk(relaxed = true)
-        processor = NotificationProcessor(chatDao, messageDao, notificationStore)
+        processor = NotificationProcessor(chatDao, messageDao, settingsDao, notificationStore)
         
         sbn = mockk()
         notification = Notification()
@@ -42,6 +46,7 @@ class NotificationProcessorTest {
         every { sbn.packageName } returns "com.whatsapp"
         every { sbn.postTime } returns 1234567890L
         every { sbn.id } returns 1
+        every { sbn.key } returns "0|com.whatsapp|1|null|10001"
     }
 
     @Test
@@ -50,8 +55,8 @@ class NotificationProcessorTest {
         val title = "John Doe"
         val text = "Hello there"
         
-        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns title
-        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns text
+        every { extras.getCharSequence(Notification.EXTRA_TITLE ?: "android.title") } returns title
+        every { extras.getCharSequence(Notification.EXTRA_TEXT ?: "android.text") } returns text
         
         // Mock static method for MessagingStyle to return null (force basic processing)
         mockkStatic(androidx.core.app.NotificationCompat.MessagingStyle::class)
@@ -75,8 +80,8 @@ class NotificationProcessorTest {
         val title = "John Doe"
         val text = "Hello there" // No "You:" prefix
         
-        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns title
-        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns text
+        every { extras.getCharSequence(Notification.EXTRA_TITLE ?: "android.title") } returns title
+        every { extras.getCharSequence(Notification.EXTRA_TEXT ?: "android.text") } returns text
         
         mockkStatic(androidx.core.app.NotificationCompat.MessagingStyle::class)
         every { androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(any()) } returns null
@@ -101,8 +106,8 @@ class NotificationProcessorTest {
         val title = "John Doe"
         val text = "You: I am fine"
         
-        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns title
-        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns text
+        every { extras.getCharSequence(Notification.EXTRA_TITLE ?: "android.title") } returns title
+        every { extras.getCharSequence(Notification.EXTRA_TEXT ?: "android.text") } returns text
         
         mockkStatic(androidx.core.app.NotificationCompat.MessagingStyle::class)
         every { androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(any()) } returns null
@@ -126,8 +131,8 @@ class NotificationProcessorTest {
         val title = "John Doe"
         val text = "📷 Photo"
         
-        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns title
-        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns text
+        every { extras.getCharSequence(Notification.EXTRA_TITLE ?: "android.title") } returns title
+        every { extras.getCharSequence(Notification.EXTRA_TEXT ?: "android.text") } returns text
         
         mockkStatic(androidx.core.app.NotificationCompat.MessagingStyle::class)
         every { androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(any()) } returns null

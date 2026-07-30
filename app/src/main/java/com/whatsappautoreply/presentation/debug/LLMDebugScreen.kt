@@ -22,13 +22,17 @@ import com.whatsappautoreply.data.database.entity.UserFeedback
 import java.text.SimpleDateFormat
 import java.util.*
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.remember
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LLMDebugScreen(
     onBackClick: () -> Unit,
     viewModel: LLMDebugViewModel = hiltViewModel()
 ) {
-    val logs by viewModel.logs.collectAsState(initial = emptyList())
+    val logs by viewModel.logs.collectAsStateWithLifecycle(initialValue = emptyList())
 
     LaunchedEffect(Unit) {
         viewModel.loadLogs()
@@ -66,7 +70,7 @@ fun LLMDebugScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(logs) { log ->
+                items(logs, key = { it.logId }) { log ->
                     LLMLogCard(log = log)
                 }
             }
@@ -78,8 +82,9 @@ fun LLMDebugScreen(
 private fun LLMLogCard(
     log: com.whatsappautoreply.data.database.entity.LLMLogEntity
 ) {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault())
-    val dateText = dateFormat.format(Date(log.timestamp))
+    val dateText = remember(log.timestamp) {
+        SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault()).format(Date(log.timestamp))
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -107,7 +112,7 @@ private fun LLMLogCard(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -164,7 +169,7 @@ private fun LLMLogCard(
                 UserFeedback.NONE -> {}
             }
 
-            Divider()
+            HorizontalDivider()
 
             Text(
                 text = "Generated Reply:",

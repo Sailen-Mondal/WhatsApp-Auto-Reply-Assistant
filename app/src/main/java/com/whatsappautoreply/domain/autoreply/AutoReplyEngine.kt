@@ -373,10 +373,10 @@ class AutoReplyEngine @Inject constructor(
         maxSeconds: Int,
         messageLength: Int
     ): Long {
-        val safeMin = minSeconds.coerceAtMost(2) // Cap min delay to 2s
-        val safeMax = maxSeconds.coerceAtMost(5) // Cap max delay to 5s
+        val safeMin = minSeconds.coerceAtLeast(0)
+        val safeMax = maxSeconds.coerceAtLeast(safeMin)
         
-        val baseDelay = (safeMin..safeMax).random()
+        val baseDelay = if (safeMin == safeMax) safeMin else (safeMin..safeMax).random()
         
         // Add minimal bonus (max 2s) for very long messages
         val lengthBonus = when {

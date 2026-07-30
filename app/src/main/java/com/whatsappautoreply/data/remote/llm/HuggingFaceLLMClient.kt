@@ -90,17 +90,17 @@ class HuggingFaceLLMClient @Inject constructor(
             // Secondary: OpenRouter
             val openRouterProvider = OpenAiCompatibleProvider(
                 name = "OpenRouter",
-                modelName = "google/gemma-4-31b-it:free",
+                modelName = "google/gemma-4-26b-a4b-it:free",
                 baseUrl = "https://openrouter.ai/api/v1/chat/completions",
                 apiKey = key,
                 client = client,
                 gson = gson
             )
 
-            // Fallback: NVIDIA NIM (Qwen2.5)
+            // Fallback: NVIDIA NIM (Llama 3.1 70B)
             val nimProvider = OpenAiCompatibleProvider(
                 name = "NVIDIA NIM",
-                modelName = "qwen/qwen2.5-72b-instruct",
+                modelName = "meta/llama-3.1-70b-instruct",
                 baseUrl = "https://integrate.api.nvidia.com/v1/chat/completions",
                 apiKey = BuildConfig.NVIDIA_NIM_API_KEY,
                 client = client,
