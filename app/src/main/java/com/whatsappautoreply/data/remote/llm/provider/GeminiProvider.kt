@@ -25,7 +25,13 @@ class GeminiProvider(
         maxTokens: Int,
         temperature: Double
     ): String? = withContext(Dispatchers.IO) {
-        val url = "$baseUrl/$modelName:generateContent?key=$apiKey"
+        val cleanKey = apiKey.trim().replace("\n", "").replace("\r", "")
+        if (cleanKey.isBlank()) {
+            DebugLogger.logEvent("LlmProvider", "SKIPPED_BLANK_API_KEY", mapOf("provider" to name))
+            return@withContext null
+        }
+
+        val url = "$baseUrl/$modelName:generateContent?key=$cleanKey"
 
         val requestBodyMap = mapOf(
             "system_instruction" to mapOf(

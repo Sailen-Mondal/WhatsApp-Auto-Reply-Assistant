@@ -37,11 +37,17 @@ class OpenAiCompatibleProvider(
         
         extraParams?.let { requestBodyMap.putAll(it) }
 
+        val cleanKey = apiKey.trim().replace("\n", "").replace("\r", "")
+        if (cleanKey.isBlank()) {
+            DebugLogger.logEvent("LlmProvider", "SKIPPED_BLANK_API_KEY", mapOf("provider" to name))
+            return@withContext null
+        }
+
         val jsonBody = gson.toJson(requestBodyMap)
         val request = Request.Builder()
-            .url(baseUrl)
+            .url(baseUrl.trim())
             .post(jsonBody.toRequestBody("application/json".toMediaType()))
-            .header("Authorization", "Bearer $apiKey")
+            .header("Authorization", "Bearer $cleanKey")
             // OpenRouter specific headers (ignored by others safely)
             .header("HTTP-Referer", "https://github.com/whatsapp-auto-reply")
             .header("X-Title", "WhatsApp Auto Reply")

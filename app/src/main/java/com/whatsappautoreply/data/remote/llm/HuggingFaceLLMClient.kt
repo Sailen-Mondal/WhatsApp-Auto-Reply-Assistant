@@ -49,12 +49,13 @@ class HuggingFaceLLMClient @Inject constructor(
      * constant if none has been saved yet.
      */
     private suspend fun getApiKey(): String {
-        val stored = settingsRepository.getString("api_key")?.takeIf { it.isNotBlank() }
+        val stored = settingsRepository.getString("api_key")?.trim()?.replace("\n", "")?.replace("\r", "")?.takeIf { it.isNotBlank() }
         if (stored != null) return stored
 
+        val bootstrapKey = BOOTSTRAP_KEY.trim().replace("\n", "").replace("\r", "")
         DebugLogger.logEvent(TAG, "BOOTSTRAP_KEY_SAVED")
-        settingsRepository.setString("api_key", BOOTSTRAP_KEY)
-        return BOOTSTRAP_KEY
+        settingsRepository.setString("api_key", bootstrapKey)
+        return bootstrapKey
     }
 
     fun invalidateClient() {
@@ -141,7 +142,7 @@ class HuggingFaceLLMClient @Inject constructor(
                 systemPrompt = systemPrompt,
                 userPrompt = userPrompt,
                 maxTokens = 5000,
-                temperature = 1.5
+                temperature = 0.7
             )
             
             var reply = cleanReply(rawReply)
@@ -197,7 +198,7 @@ class HuggingFaceLLMClient @Inject constructor(
                 systemPrompt = systemPrompt,
                 userPrompt = userPrompt,
                 maxTokens = 5000,
-                temperature = 1.5
+                temperature = 0.7
             )
             
             var reply = cleanReply(rawReply)
