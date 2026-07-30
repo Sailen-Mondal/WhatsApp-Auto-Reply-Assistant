@@ -6,7 +6,7 @@ This guide will help you test all Phase 2 features: Manual AI Suggestions, Copy/
 
 1. **Android Device or Emulator** (Android 8.0+)
 2. **WhatsApp installed** on the device
-3. **Groq API Key** (optional - can be added via Settings)
+3. **LLM API Key** — at least one of: Gemini API key, OpenRouter API key, or NVIDIA NIM API key
 
 ## Setup Steps
 
@@ -33,27 +33,23 @@ cd /home/sailen/Projects
 4. Toggle it ON
 5. Return to the app and tap "I've granted the permission"
 
-### 3. Configure Groq API Key (Optional)
+### 3. Configure LLM API Keys
 
-You can add the API key in two ways:
+The app uses a multi-provider LLM system with automatic failover. Add keys via `local.properties` in the project root:
 
-**Method 1: Via Settings Screen (Recommended)**
-1. Open the app
-2. Tap the Settings icon (⚙️) in the top-right
-3. Enter your Groq API key in the "Groq API Key" field
-4. Tap "Save Settings"
-5. You should see "Settings saved successfully!"
+```properties
+GEMINI_API_KEY=your_gemini_api_key_here         # Primary (Gemini 2.5 Flash)
+OPENROUTER_API_KEY=your_openrouter_api_key_here  # Secondary (Gemma 4 31B)
+NVIDIA_NIM_API_KEY=your_nvidia_nim_api_key_here   # Fallback (Qwen 2.5 72B)
+```
 
-**Method 2: Via local.properties (For Development)**
-1. Create/edit `local.properties` in the project root
-2. Add: `GROQ_API_KEY=your_api_key_here`
-3. Rebuild the app
+Rebuild the app after adding keys. Keys are encrypted at rest via AndroidKeyStore.
 
-**Get API Key:**
-- Visit https://console.groq.com
-- Sign up/login
-- Create an API key
-- Copy the key (starts with `gsk_`)
+**Get API Keys:**
+- Gemini: https://aistudio.google.com/apikey
+- OpenRouter: https://openrouter.ai/keys
+- NVIDIA NIM: https://build.nvidia.com/
+
 
 ## Testing Phase 2 Features
 
@@ -99,7 +95,7 @@ You can add the API key in two ways:
 - If you see "Could not generate reply. Check API key or try again."
   - Verify API key is saved in Settings
   - Check internet connection
-  - Verify API key is valid at https://console.groq.com
+  - Verify API keys are set in `local.properties` and app is rebuilt
 
 ---
 

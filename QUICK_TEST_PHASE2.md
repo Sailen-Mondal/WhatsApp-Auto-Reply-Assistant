@@ -12,8 +12,8 @@
 2. **Grant Permissions**
    - Open app → Tap "Open Settings" → Enable notification access
 
-3. **Add API Key** (if not in local.properties)
-   - Settings (⚙️) → Enter Groq API key → Save
+3. **Add API Keys** (via `local.properties` — Gemini, OpenRouter, and/or NVIDIA NIM)
+   - See `TESTING_PHASE2.md` for full setup instructions
 
 ## ✅ Quick Test Flow
 

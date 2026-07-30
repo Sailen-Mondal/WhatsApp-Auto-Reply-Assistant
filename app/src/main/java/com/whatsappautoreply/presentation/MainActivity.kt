@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.whatsappautoreply.presentation.analytics.AnalyticsScreen
+import com.whatsappautoreply.presentation.brain.BrainEditorScreen
 import com.whatsappautoreply.presentation.chatdetail.ChatDetailScreen
 import com.whatsappautoreply.presentation.chatlist.ChatListScreen
 import com.whatsappautoreply.presentation.debug.LLMDebugScreen
@@ -114,6 +115,16 @@ fun WhatsAppAutoReplyApp() {
                         },
                         onDebugClick = {
                             navController.navigate("debug")
+                        },
+                        onBrainClick = {
+                            navController.navigate("brain_editor")
+                        }
+                    )
+                }
+                composable("brain_editor") {
+                    BrainEditorScreen(
+                        onBackClick = {
+                            navController.popBackStack()
                         }
                     )
                 }

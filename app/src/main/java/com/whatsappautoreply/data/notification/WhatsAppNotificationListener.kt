@@ -9,6 +9,7 @@ import com.whatsappautoreply.data.service.KeepAliveService
 import com.whatsappautoreply.domain.autoreply.AutoReplyConfig
 import com.whatsappautoreply.domain.autoreply.AutoReplyEngine
 import com.whatsappautoreply.domain.autoreply.DelayScheduler
+import com.whatsappautoreply.domain.brain.BrainRepository
 import com.whatsappautoreply.util.ChatUtils
 import com.whatsappautoreply.util.DebugLogger
 import dagger.hilt.android.AndroidEntryPoint
@@ -49,6 +50,9 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     @Inject
     lateinit var notificationReplySender: NotificationReplySender
+
+    @Inject
+    lateinit var brainRepository: BrainRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -195,11 +199,11 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         notificationStore.setListenerService(this)
         
         serviceScope.launch {
-            // One-time migration: enable auto-reply for ALL existing chats.
-            // Chats created with the old default (autoReplyEnabled=false) are upgraded here.
-            // New chats will correctly default to true from the ChatEntity change.
-            chatDao.enableAllChatsAutoReply()
-            DebugLogger.logEvent(TAG, "ALL_CHATS_AUTO_REPLY_ENABLED")
+            // Initialize brain files on first run (idempotent)
+            brainRepository.initializeIfNeeded()
+            DebugLogger.logEvent(TAG, "BRAIN_INITIALIZED")
+
+
 
             val config = loadAutoReplyConfig()
             DebugLogger.logEvent(TAG, "CONFIG_LOADED", mapOf(
@@ -358,25 +362,35 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     }
 
     /**
-     * Load auto-reply configuration from settings
+     * Load auto-reply configuration from settings.
+     * Loads ALL 12 AutoReplyConfig fields (previously only 7 were loaded).
      */
     private suspend fun loadAutoReplyConfig(): AutoReplyConfig {
-        val enabled = settingsDao.getSetting("auto_reply_enabled")?.value?.toBoolean() ?: false
-        val minDelay = settingsDao.getSetting("auto_reply_min_delay")?.value?.toIntOrNull() ?: 1
-        val maxDelay = settingsDao.getSetting("auto_reply_max_delay")?.value?.toIntOrNull() ?: 10
-        val cooldown = settingsDao.getSetting("auto_reply_cooldown")?.value?.toIntOrNull() ?: 5
-        val excludeGroups = settingsDao.getSetting("exclude_group_chats")?.value?.toBoolean() ?: true
+        val enabled        = settingsDao.getSetting("auto_reply_enabled")?.value?.toBoolean() ?: false
+        val minDelay       = settingsDao.getSetting("auto_reply_min_delay")?.value?.toIntOrNull() ?: 1
+        val maxDelay       = settingsDao.getSetting("auto_reply_max_delay")?.value?.toIntOrNull() ?: 10
+        val cooldown       = settingsDao.getSetting("auto_reply_cooldown")?.value?.toIntOrNull() ?: 0
+        val excludeGroups  = settingsDao.getSetting("exclude_group_chats")?.value?.toBoolean() ?: true
         val replyToQuestions = settingsDao.getSetting("reply_to_questions_only")?.value?.toBoolean() ?: false
-        val waitForUser = settingsDao.getSetting("wait_for_user_seconds")?.value?.toIntOrNull() ?: 0
-        
+        val waitForUser    = settingsDao.getSetting("wait_for_user_seconds")?.value?.toIntOrNull() ?: 0
+        // Previously missing fields — now loaded correctly:
+        val quietHoursStart = settingsDao.getSetting("quiet_hours_start")?.value?.toIntOrNull()
+        val quietHoursEnd   = settingsDao.getSetting("quiet_hours_end")?.value?.toIntOrNull()
+        val safetyMode      = settingsDao.getSetting("safety_mode_enabled")?.value?.toBoolean() ?: true
+        val maxPer10Min     = settingsDao.getSetting("max_replies_per_10min")?.value?.toIntOrNull() ?: 3
+
         return AutoReplyConfig(
-            isGloballyEnabled = enabled,
-            minDelaySeconds = minDelay,
-            maxDelaySeconds = maxDelay,
-            cooldownSeconds = cooldown,
-            excludeGroupChats = excludeGroups,
+            isGloballyEnabled    = enabled,
+            minDelaySeconds      = minDelay,
+            maxDelaySeconds      = maxDelay,
+            cooldownSeconds      = cooldown,
+            excludeGroupChats    = excludeGroups,
             replyToQuestionsOnly = replyToQuestions,
-            waitForUserSeconds = waitForUser
+            waitForUserSeconds   = waitForUser,
+            quietHoursStart      = quietHoursStart,
+            quietHoursEnd        = quietHoursEnd,
+            safetyModeEnabled    = safetyMode,
+            maxRepliesPer10Min   = maxPer10Min
         )
     }
 

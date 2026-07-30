@@ -6,6 +6,8 @@ import com.whatsappautoreply.data.notification.NotificationReplySender
 import com.whatsappautoreply.data.notification.NotificationStore
 import com.whatsappautoreply.domain.autoreply.AutoReplyEngine
 import com.whatsappautoreply.domain.autoreply.DelayScheduler
+import com.whatsappautoreply.domain.brain.BrainLoader
+import com.whatsappautoreply.domain.brain.BrainRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,7 +16,11 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Dagger Hilt module for  auto-reply components
+ * Dagger Hilt module for auto-reply and brain layer components.
+ *
+ * BrainRepository and BrainLoader are provided here as singletons.
+ * They are injected into HuggingFaceLLMClient so the system prompt
+ * is assembled from editable brain files at runtime.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -50,4 +56,5 @@ object AutoReplyModule {
     ): WorkManager {
         return WorkManager.getInstance(context)
     }
+
 }

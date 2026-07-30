@@ -55,9 +55,19 @@ class ChatDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val recent = messageRepository.getRecentMessages(chatId, limit = 15)
             if (recent.isNotEmpty()) {
-                val (tone, mood) = llmClient.analyzeToneAndMood(recent)
-                if (!tone.isNullOrBlank()) suggestedTone.value = tone
-                if (!mood.isNullOrBlank()) suggestedMood.value = mood
+                // analyzeToneAndMood now returns (emotion, dynamic) from the new emotional analysis
+                val (emotion, dynamic) = llmClient.analyzeToneAndMood(recent)
+                if (!emotion.isNullOrBlank()) {
+                    // Build a richer display string for the mood banner
+                    val vibeDisplay = buildString {
+                        append(emotion.replaceFirstChar { it.uppercaseChar() })
+                        if (!dynamic.isNullOrBlank()) {
+                            append(" · ${dynamic.replace("_", " ")}")
+                        }
+                    }
+                    suggestedMood.value = vibeDisplay
+                }
+                // Tone hint comes from per-chat setting, not LLM analysis
             }
         }
     }

@@ -30,12 +30,22 @@ android {
             useSupportLibrary = true
         }
 
-        // Expose the API key to Kotlin code via BuildConfig.OPENROUTER_API_KEY
-        // The value comes from local.properties which is git-ignored.
+        // Expose the API keys to Kotlin code via BuildConfig
+        // The values come from local.properties which is git-ignored.
         buildConfigField(
             "String",
             "OPENROUTER_API_KEY",
             "\"${localProperties.getProperty("OPENROUTER_API_KEY", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "NVIDIA_NIM_API_KEY",
+            "\"${localProperties.getProperty("NVIDIA_NIM_API_KEY", "")}\""
         )
     }
 

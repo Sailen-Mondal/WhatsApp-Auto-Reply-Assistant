@@ -9,7 +9,7 @@ data class ChatEntity(
     val chatId: String,
     val title: String,
     val isGroup: Boolean = false,
-    val autoReplyEnabled: Boolean = true,
+    val autoReplyEnabled: Boolean = false,
     val preferredTone: String? = null, // auto, flirty, funny, professional, chill, romantic
     val lastMessageTimestamp: Long = 0L,
     val lastLLMReplyTimestamp: Long? = null,

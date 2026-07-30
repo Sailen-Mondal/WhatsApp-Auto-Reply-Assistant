@@ -181,7 +181,7 @@ class NotificationStore @Inject constructor() {
                     // Find a notification that matches this chat ID
                     val found = activeNotifications.find { activeSbn ->
                         val title = activeSbn.notification.extras?.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
-                        title != null && com.whatsappautoreply.util.ChatUtils.generateChatId(title) == chatId
+                        title != null && com.whatsappautoreply.util.ChatUtils.generateChatId(title) == chatId && hasReplyAction(activeSbn)
                     }
 
                     if (found != null) {

@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -28,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun SettingsScreen(
     onBackClick: () -> Unit,
     onDebugClick: () -> Unit = {},
+    onBrainClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val defaultTone by viewModel.defaultTone.collectAsState(initial = "auto")
@@ -57,6 +59,41 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+
+            // Agent Brain Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onBrainClick,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🧠", style = MaterialTheme.typography.headlineMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Agent Brain",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Edit OWL's personality, memory, user profile, and operating rules",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Open Brain Editor",
+                        modifier = Modifier.rotate(180f),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
 
             // Auto-Reply Settings Section
             Card(
@@ -226,7 +263,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    val toneOptions = listOf("auto", "flirty", "funny", "professional", "chill", "romantic", "happy", "sad", "angry")
+                    val toneOptions = listOf("auto", "friendly", "professional", "flirty", "funny", "chill", "romantic", "formal")
                     
                     var expanded by remember { mutableStateOf(false) }
                     
@@ -259,6 +296,12 @@ fun SettingsScreen(
                             }
                         }
                     }
+
+                    Text(
+                        text = "The AI has its own personality and adapts naturally. This is a gentle hint, not a hard mode switch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -312,7 +355,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleSmall
                     )
                     Text(
-                        text = "This app uses Hugging Face's Zephyr 7B model to generate context-aware replies. Your data is processed locally and via Hugging Face's API.",
+                        text = "This app uses OpenRouter AI models to generate context-aware replies with a natural, human-like persona. Your data is processed locally and via OpenRouter's API.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

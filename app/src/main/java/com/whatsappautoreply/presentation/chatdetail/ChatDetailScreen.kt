@@ -223,7 +223,7 @@ fun ChatDetailScreen(
                         tint = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Text(
-                        text = "Detected mood: ${suggestedMood ?: ""}",
+                        text = "Vibe: ${suggestedMood ?: ""}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )

@@ -29,7 +29,7 @@ class AutoReplyEngine @Inject constructor(
 ) {
     companion object {
         private const val TAG = "AutoReplyEngine"
-        private const val CONTEXT_WINDOW_SIZE = 10
+        private const val CONTEXT_WINDOW_SIZE = 15
         private const val MILLIS_PER_MINUTE = 60_000L
     }
 
@@ -65,6 +65,17 @@ class AutoReplyEngine @Inject constructor(
                 return AutoReplyDecision(
                     shouldReply = false,
                     reason = "Global auto-reply is disabled",
+                    chatId = chatId,
+                    messageId = messageId,
+                    notificationKey = notificationKey
+                )
+            }
+
+            // Step 1.5: Check quiet hours
+            if (isInQuietHours(config)) {
+                return AutoReplyDecision(
+                    shouldReply = false,
+                    reason = "Currently in quiet hours",
                     chatId = chatId,
                     messageId = messageId,
                     notificationKey = notificationKey
@@ -238,21 +249,14 @@ class AutoReplyEngine @Inject constructor(
             // Step 8: Build context
             val context = buildContext(chatId)
 
-            // Step 9.5: Infer mood for smarter reply generation
-            val recentMsgsForMood = messageDao.getRecentMessagesForChat(chatId, 8)
-            val (inferredTone, inferredMood) = try {
-                llmClient.analyzeToneAndMood(recentMsgsForMood)
-            } catch (e: Exception) {
-                DebugLogger.logError(TAG, "MOOD_INFERENCE_ERROR", e)
-                Pair(null, null)
-            }
-
-            // Resolved tone: per-chat setting > LLM inference > auto
+            // Step 9: Resolve tone hint (no extra LLM call — persona auto-adapts)
+            // Per-chat tone setting is passed as a gentle hint, not a hard override
             val resolvedTone = when {
                 !chat.preferredTone.isNullOrBlank() && chat.preferredTone != "auto" -> chat.preferredTone
-                !inferredTone.isNullOrBlank() -> inferredTone.lowercase()
                 else -> "auto"
             }
+            // Mood is no longer pre-analyzed — the persona prompt handles it naturally
+            val inferredMood: String? = null
 
             // Step 10: Calculate delay with jitter
             val delayMillis = calculateDelay(
@@ -341,18 +345,18 @@ class AutoReplyEngine @Inject constructor(
         val tenMinsAgo = now - (10 * MILLIS_PER_MINUTE)
         val oneHourAgo = now - (60 * MILLIS_PER_MINUTE)
         
-        // Per-chat limit (3 per 10 mins)
+        // Per-chat limit (increased to 30 per 10 mins for long conversations)
         val recentAutoReplies = messageDao.getMessagesForChatSince(chatId, tenMinsAgo)
             .count { it.direction == MessageDirection.BOT_OUTGOING }
             
-        if (recentAutoReplies >= config.maxRepliesPer10Min) {
+        if (recentAutoReplies >= config.maxRepliesPer10Min.coerceAtLeast(30)) {
             DebugLogger.logEvent(TAG, "RATE_LIMIT_EXCEEDED_CHAT", mapOf("chatId" to chatId))
             return false
         }
         
-        // Global limit (10 per hour)
+        // Global limit (increased to 200 per hour)
         val globalCount = messageDao.getGlobalAutoReplyCountSince(oneHourAgo)
-        if (globalCount >= 10) {
+        if (globalCount >= 200) {
             DebugLogger.logEvent(TAG, "RATE_LIMIT_EXCEEDED_GLOBAL", mapOf("count" to globalCount))
             return false
         }
@@ -362,20 +366,22 @@ class AutoReplyEngine @Inject constructor(
 
     /**
      * Calculate random delay with jitter
-     * Longer messages get slightly longer delays to simulate typing
+     * Reduced for faster response times while maintaining a slight natural pause
      */
     private fun calculateDelay(
         minSeconds: Int,
         maxSeconds: Int,
         messageLength: Int
     ): Long {
-        val baseDelay = (minSeconds..maxSeconds).random()
+        val safeMin = minSeconds.coerceAtMost(2) // Cap min delay to 2s
+        val safeMax = maxSeconds.coerceAtMost(5) // Cap max delay to 5s
         
-        // Add up to 5 seconds for longer messages
+        val baseDelay = (safeMin..safeMax).random()
+        
+        // Add minimal bonus (max 2s) for very long messages
         val lengthBonus = when {
-            messageLength > 200 -> 5
-            messageLength > 100 -> 3
-            messageLength > 50 -> 1
+            messageLength > 200 -> 2
+            messageLength > 100 -> 1
             else -> 0
         }
         
